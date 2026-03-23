@@ -13,7 +13,7 @@
 #ifndef STM32F407XX_H_
 #define STM32F407XX_H_
 
-define  __weak __attribute__((weak))
+#define  __weak __attribute__((weak))
 
 /*
  * Base addresses of FLASH and SRAM memories
@@ -165,6 +165,15 @@ define  __weak __attribute__((weak))
 #define IRQ_NO_I2C3_EV   72
 #define IRQ_NO_I2C3_ER   73
 
+/*
+ * USART IRQ Numbers
+ */
+#define IRQ_NO_USART1    37
+#define IRQ_NO_USART2    38
+#define IRQ_NO_USART3    39
+#define IRQ_NO_UART4     52
+#define IRQ_NO_UART5     53
+#define IRQ_NO_USART6    71
 /*
  * ARM Cortex-M4 processor STIR register address
  */
@@ -663,7 +672,119 @@ typedef struct{
 #define FLAG_RESET      RESET
 #define FLAG_SET        SET
 
+/*
+ * USART peripheral register structure
+ */
+typedef struct{
+	uint32_t volatile SR;             //offset: 0x00
+	uint32_t volatile DR;             //offset: 0x04
+	uint32_t volatile BRR;            //offset: 0x08
+	uint32_t volatile CR1;            //offset: 0x0C
+	uint32_t volatile CR2;            //offset: 0x10
+	uint32_t volatile CR3;            //offset: 0x14
+	uint32_t volatile GTPR;           //offset: 0x18
+}USART_REG_t;
+
+/*
+ * USART peripheral definitions
+ */
+#define USART1 ((USART_REG_t*)USART1_BASE)
+#define USART2 ((USART_REG_t*)USART2_BASE)
+#define USART3 ((USART_REG_t*)USART3_BASE)
+#define UART4  ((USART_REG_t*)UART4_BASE)
+#define UART5  ((USART_REG_t*)UART5_BASE)
+#define USART6 ((USART_REG_t*)USART6_BASE)
+
+/*
+ * USART reset macros
+ */
+#define USART1_REG_RESET() do{(RCC->APB2RSTR |= (1 << 4)); (RCC->APB2RSTR &= ~(1 << 4));}while(0)
+#define USART2_REG_RESET() do{(RCC->APB1RSTR |= (1 << 17)); (RCC->APB1RSTR &= ~(1 << 17));}while(0)
+#define USART3_REG_RESET() do{(RCC->APB1RSTR |= (1 << 18)); (RCC->APB1RSTR &= ~(1 << 18));}while(0)
+#define UART4_REG_RESET() do{(RCC->APB1RSTR |= (1 << 19)); (RCC->APB1RSTR &= ~(1 << 19));}while(0)
+#define UART5_REG_RESET() do{(RCC->APB1RSTR |= (1 << 20)); (RCC->APB1RSTR &= ~(1 << 20));}while(0)
+#define USART6_REG_RESET() do{(RCC->APB2RSTR |= (1 << 5)); (RCC->APB2RSTR &= ~(1 << 5));}while(0)
+
+/*
+ * USART SR bit position macros
+ */
+#define USART_SR_PE     0
+#define USART_SR_FE     1
+#define USART_SR_NF     2
+#define USART_SR_ORE    3
+#define USART_SR_IDLE   4
+#define USART_SR_RXNE   5
+#define USART_SR_TC     6
+#define USART_SR_TXE    7
+#define USART_SR_LBD    8
+#define USART_SR_CTS    9
+
+/*
+ * USART DR bit position macros
+ */
+#define USART_DR_DR 0
+
+/*
+ * USART BRR bit position macros
+ */
+#define USART_BRR_DIV_FRACTION 0
+#define USART_BRR_DIV_MANTISSA 4
+
+/*
+ * USART CR1 bits position macros
+ */
+#define USART_CR1_SBK     0
+#define USART_CR1_RWU     1
+#define USART_CR1_RE      2
+#define USART_CR1_TE      3
+#define USART_CR1_IDLEIE  4
+#define USART_CR1_RXNEIE  5
+#define USART_CR1_TCIE    6
+#define USART_CR1_TXEIE   7
+#define USART_CR1_PEIE    8
+#define USART_CR1_PS      9
+#define USART_CR1_PCE     10
+#define USART_CR1_WAKE    11
+#define USART_CR1_M       12
+#define USART_CR1_UE      13
+#define USART_CR1_OVER8   15
+
+/*
+ * USART CR2 bits position macros
+ */
+#define USART_CR2_ADD     0
+#define USART_CR2_LBDL    5
+#define USART_CR2_LBDIE   6
+#define USART_CR2_LBCL    8
+#define USART_CR2_CPHA    9
+#define USART_CR2_CPOL    10
+#define USART_CR2_CLKEN   11
+#define USART_CR2_STOP    12
+#define USART_CR2_LINEN   14
+
+/*
+ * USART CR3 bits position macros
+ */
+#define USART_CR3_EIE     0
+#define USART_CR3_IREN    1
+#define USART_CR3_IRLP    2
+#define USART_CR3_HDSEL   3
+#define USART_CR3_NACK    4
+#define USART_CR3_SCEN    5
+#define USART_CR3_DMAR    6
+#define USART_CR3_DMAT    7
+#define USART_CR3_RTSE    8
+#define USART_CR3_CTSE    9
+#define USART_CR3_CTSIE   10
+#define USART_CR3_ONEBIT  11
+
+/*
+ * USART GTPR bits position macros
+ */
+#define USART_GTPR_PSC    0
+#define USART_GTPR_GT     8
 
 #include "gpio.h"
+#include "usart.h"
 
 #endif /* STM32F407XX_H_ */
