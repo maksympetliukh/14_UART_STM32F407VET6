@@ -185,10 +185,162 @@ void USART_PeripheralControl(USART_REG_t *pUSARTx, uint8_t enDi){
 	}
 }
 
-void USART_Transmit(USART_REG_t *pUSARTx, uint8_t *pTxBuffer, uint32_t len);
-void USART_Receive(USART_REG_t *pUSARTx, uint8_t *pRxBuffer, uint32_t len);
-uint8_t USART_TransmitIT(USART_Handle_t *pUSART_Handle, uint8_t *pTxBuffer, uint32_t len);
-uint8_t USART_ReceiveIT(USART_Handle_t *pUSART_Handle, uint8_t *pRxBuffer, uint32_t len);
+/************************************************************************
+ * @fn                 USART_Transmit
+ *
+ * @brief              This function
+ *
+ * @param[in]          Pointer to the structure with USARTx peripheral register base addresses
+ * @param[in]          Pointer to the TX buffer which contains the data that we want to send
+ * @param[in]          Length of the data
+ *
+ * @return             none
+ */
+void USART_Transmit(USART_Handle_t *pUSART_Handle, uint8_t *pTxBuffer, uint32_t len){
+	uint16_t *pData;
+	(void)pData;
+
+	//Loop over until all bytes (data length) are transferred
+	for(uint32_t i = 0; i < len; i++){
+
+		//Wait until TXE flag is set in the SR
+		while(!USART_GetFlagStatus(pUSART_Handle->pUSARTx, USART_FLAG_TXE));
+
+		//Check the Word Length (9 or 8 bits)
+		if(pUSART_Handle->USART_Config.USART_WordLength == USART_WORDLEN_9BITS){
+
+			//9BITS, load the DR with 2 bytes masking the bits other than first 9 bits
+			pData = (uint16_t *)pTxBuffer;
+
+			//Check for USART Parity Control
+			if(pUSART_Handle->USART_Config.USART_ParityControl == USART_PARITY_DISABLE){
+				//no parity is used in this transfer, so, 9 bits of user's data will be sent
+				pUSART_Handle->pUSARTx->DR = (*pData & (uint16_t)0x01FF);
+				pTxBuffer += 2;
+			}else{
+			//parity bit is used in this transfer, so, 8 bits of user data will be sent
+			//9th bit will be replaced by parity bit by the hardware
+			pUSART_Handle->pUSARTx->DR = (*pTxBuffer & (uint8_t)0xFF);
+			pTxBuffer++;
+		}
+	}else{
+		//8 bit transfer
+		pUSART_Handle->pUSARTx->DR = (*pTxBuffer & (uint8_t)0xFF);
+		pTxBuffer++;
+		}
+	}
+	//Wait until TC flag is set in the SR
+	while(!USART_GetFlagStatus(pUSART_Handle->pUSARTx, USART_FLAG_TC));
+}
+
+/****************************************************************************************
+ * @fn              USART_Receive
+ *
+ * @brief           This function receives the data from another device and writes it in to DR
+ *
+ * @param[in]       Pointer to the structure with USARTx peripheral register base addresses
+ * @param[in]       Pointer to the RX buffer which contains the data that we want to write
+ * @param[in]       Length of the data
+ */
+void USART_Receive(USART_Handle_t *pUSART_Handle, uint8_t *pRxBuffer, uint32_t len){
+	//Loop over until all bytes (data length) are transferred
+	for(uint32_t i = 0; i < len; i++){
+		while(!USART_GetFlagStatus(pUSART_Handle->pUSARTx, USART_BUSY_IN_RX)){
+			if(USART_GetFlagStatus(pUSART_Handle->pUSARTx, USART_ERR_ORE)){
+				//Read SR (done)
+				//Read DR to clear the flag
+				uint8_t dummy = pUSART_Handle->pUSARTx->DR;//BUT IN BLOCKING API IT DELETES 1 BYTE OF INFO
+				(void)dummy;
+			}
+		}
+
+		//Check the Word length
+		if(pUSART_Handle->USART_Config.USART_WordLength == USART_WORDLEN_9BITS){
+			//We are going to receive 9 bits data in a frame
+
+			//Check for parity control
+			if(pUSART_Handle->USART_Config.USART_ParityControl == USART_PARITY_DISABLE){
+				//no parity, all 9 bits will be user's data
+				//read only first 9 bits, mask the DR with 0x01FF
+				*((uint16_t*)pRxBuffer) = (pUSART_Handle->pUSARTx->DR & (uint16_t)0x01FF);
+				pRxBuffer += 2;
+			}else{
+				//parity is used, 8 bits - data, 1 - parity bit
+				*pRxBuffer = (pUSART_Handle->pUSARTx->DR & (uint8_t)0xFF);
+				pRxBuffer++;
+			}
+		}else{
+			//8 bits reception
+
+			//Check Parity Control
+			if(pUSART_Handle->USART_Config.USART_ParityControl == USART_PARITY_DISABLE){
+				//no parity, all 8 bits - data
+				*pRxBuffer = pUSART_Handle->pUSARTx->DR;
+			}else{
+				//parity is used, 7 bits - data, 1 - parity bit
+				//read 7 bits and mask the DR with 0x7F
+				*pRxBuffer = (pUSART_Handle->pUSARTx->DR & (uint8_t)0x7F);
+			}
+			pRxBuffer++;
+		}
+	}
+}
+
+/**************************************************************************************
+ * @fn               USART_TransmitIT
+ *
+ * @brief            This is a non-blocking API for sending the data with interruptions
+ *
+ * @param[in]        Pointer to the structure with USARTx peripheral register base addresses
+ * @param[in]        Pointer to the TX buffer which contains the data that we want to send
+ * @param[in]        Data length
+ *
+ * @return           State of USARTx peripheral
+ */
+uint8_t USART_TransmitIT(USART_Handle_t *pUSART_Handle, uint8_t *pTxBuffer, uint32_t len){
+	uint8_t tx_state = pUSART_Handle->TxState;
+
+	if(tx_state != USART_BUSY_IN_TX){
+		pUSART_Handle->TxLen = len;
+		pUSART_Handle->pTxBuffer = pTxBuffer;
+		pUSART_Handle->TxState = USART_BUSY_IN_TX;
+
+		//Enable TX interrupt
+		pUSART_Handle->pUSARTx->CR1 |= (1 << USART_CR1_TXEIE);
+
+		//Enable TC interrupt
+		//pUSART_Handle->pUSARTx->CR1 |= (1 << USART_CR1_TCIE);
+	}
+
+	return tx_state;
+}
+
+/************************************************************************************
+ * @fn               USART_ReceiveIT
+ *
+ * @brief            This is a non-blocking API for reception the data with interruptions
+ *
+ * @param[in]        Pointer to the structure with USARTx peripheral register base addresses
+ * @param[in]        Pointer to the RX buffer which contains the data that we want to write
+ * @param[in]        Data length
+ *
+ * @return           State of USARTx peripheral
+ */
+uint8_t USART_ReceiveIT(USART_Handle_t *pUSART_Handle, uint8_t *pRxBuffer, uint32_t len){
+	uint8_t rx_state = pUSART_Handle->RxState;
+
+	if(rx_state != USART_BUSY_IN_RX){
+		pUSART_Handle->RxLen = len;
+		pUSART_Handle->pRxBuffer = pRxBuffer;
+		pUSART_Handle->RxState = USART_BUSY_IN_RX;
+
+		//Enable RX interrupt
+		pUSART_Handle->pUSARTx->CR1 |= (1 << USART_CR1_RXNEIE);
+	}
+
+	return rx_state;
+}
+
 /*******************************************************************
  * @fn               USART_GetFlagStatus
  *

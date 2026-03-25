@@ -30,7 +30,8 @@ typedef struct{
 	USART_Config_t USART_Config;
 	uint8_t *pTxBuffer;
 	uint8_t *pRxBuffer;
-	uint8_t TxRxState;
+	uint8_t TxState;
+	uint8_t RxState;
 	uint32_t TxLen;
 	uint32_t RxLen;
 }USART_Handle_t;
@@ -107,14 +108,28 @@ typedef struct{
 #define USART_ERR_ORE            7
 
 /*
+ * USART Status Register Flags (Bit Masks)
+ */
+#define USART_FLAG_PE      (1 << 0)
+#define USART_FLAG_FE      (1 << 1)
+#define USART_FLAG_NF      (1 << 2)
+#define USART_FLAG_ORE     (1 << 3)
+#define USART_FLAG_IDLE    (1 << 4)
+#define USART_FLAG_RXNE    (1 << 5)
+#define USART_FLAG_TC      (1 << 6)
+#define USART_FLAG_TXE     (1 << 7)
+#define USART_FLAG_LBD     (1 << 8)
+#define USART_FLAG_CTS     (1 << 9)
+
+/*
  * USART APIs
  */
 void USART_Init(USART_Handle_t *pUSART_Handle);
 void USART_DeInit(USART_REG_t *pUSARTx);
 void USART_ClockControl(USART_REG_t *pUSARTx, uint8_t enDi);
 void USART_PeripheralControl(USART_REG_t *pUSARTx, uint8_t enDi);
-void USART_Transmit(USART_REG_t *pUSARTx, uint8_t *pTxBuffer, uint32_t len);
-void USART_Receive(USART_REG_t *pUSARTx, uint8_t *pRxBuffer, uint32_t len);
+void USART_Transmit(USART_Handle_t *pUSART_Handle, uint8_t *pTxBuffer, uint32_t len);
+void USART_Receive(USART_Handle_t *pUSART_Handle, uint8_t *pRxBuffer, uint32_t len);
 uint8_t USART_TransmitIT(USART_Handle_t *pUSART_Handle, uint8_t *pTxBuffer, uint32_t len);
 uint8_t USART_ReceiveIT(USART_Handle_t *pUSART_Handle, uint8_t *pRxBuffer, uint32_t len);
 uint8_t USART_GetFlagStatus(USART_REG_t *pUSARTx, uint32_t flag);
