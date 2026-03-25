@@ -7,7 +7,97 @@
 
 #include "usart.h"
 
-void USART_Init(USART_Handle_t *pUSART_Handle);
+/*******************************************************
+ * @fn            USART_Init
+ *
+ * @brief         This function initializes the USARTx peripheral according to the specified settings in the handle structure
+ *
+ * @param[in]     Pointer to the structure of USARTx peripheral configurations and settings
+ *
+ * @return        none
+ */
+void USART_Init(USART_Handle_t *pUSART_Handle){
+	uint32_t tmp = 0;
+
+	/**************************Configuration of CR1***********************************/
+
+	//Enable the USARTx peripheral Clock
+	USART_ClockControl(pUSART_Handle->pUSARTx, ENABLE);
+
+	//USART Tx and Rx enable
+	if(pUSART_Handle->USART_Config.USART_Mode == USART_MODE_ONLY_RX){
+		//RX mode
+		tmp |= (1 << USART_CR1_RE);
+	}else if(pUSART_Handle->USART_Config.USART_Mode == USART_MODE_ONLY_TX){
+		//TX mode
+		tmp |= (1 << USART_CR1_TE);
+	}else if(pUSART_Handle->USART_Config.USART_Mode == USART_MODE_TXRX){
+		//TXRX mode
+		tmp |= ((1 << USART_CR1_RE) | (1 << USART_CR1_TE));
+	}
+	//Configure the Word length
+
+	//Clear the M0 and M1 bits in CR1
+	tmp &= ~(1 << USART_CR1_M);
+
+	//set the Word length
+	tmp |= (pUSART_Handle->USART_Config.USART_WordLength << USART_CR1_M);
+
+	//Configuration of parity control
+	if(pUSART_Handle->USART_Config.USART_ParityControl == USART_PARITY_EN_EVEN){
+
+		//enable parity control (EVEN parity enabled by default)
+		tmp |= (1 << USART_CR1_PCE);
+
+	}else if(pUSART_Handle->USART_Config.USART_ParityControl == USART_PARITY_EN_ODD){
+		tmp |= (1 << USART_CR1_PCE);
+
+		//Enable Parity ODD mode
+		tmp |= (1 << USART_CR1_PS);
+	}
+	//Program the CR1 register
+	pUSART_Handle->pUSARTx->CR1 = tmp;
+
+	/*******************************Configuration of CR2**********************************/
+	tmp = 0;
+
+	//Configure the number of the USARTx STOP bits
+
+	//Clear STOP bits
+	tmp &= ~(0x3 << USART_CR2_STOP);
+
+	//set STOP bits
+	tmp |= (pUSART_Handle->USART_Config.USART_NoOfStopBits << USART_CR2_STOP);
+
+	pUSART_Handle->pUSARTx->CR2 = tmp;
+
+	/**************************************Configuration of CR3*****************************/
+	tmp = 0;
+
+	//Configure the USARTx Hardware Flow Control
+	if(pUSART_Handle->USART_Config.USART_HWFlowControl == USART_HW_FLOW_CTRL_CTS){
+		//CTS mode
+		tmp |= (1 << USART_CR3_CTSE);
+	}else if(pUSART_Handle->USART_Config.USART_HWFlowControl == USART_HW_FLOW_CTRL_RTS){
+		//RTS mode
+		tmp |= (1 << USART_CR3_RTSE);
+	}else if(pUSART_Handle->USART_Config.USART_HWFlowControl == USART_HW_FLOW_CTRL_CTS_RTS){
+		//Both CTS and RTS mode
+
+		//Clear CTSE and RTSE bits before setting
+		tmp &= ~((1 << USART_CR3_CTSE) | (1 << USART_CR3_RTSE));
+
+		//set CTSE and RTSE bits
+		tmp |= ((1 <<USART_CR3_CTSE) | (1 << USART_CR3_RTSE));
+	}
+
+	pUSART_Handle->pUSARTx->CR3 = tmp;
+
+	/**************************************Configure the BRR***********************************/
+	tmp = 0;
+
+	//This part will be filled later according to the courses
+}
 /*********************************************
  * @fn              USART_DeInit
  *
@@ -89,9 +179,9 @@ void USART_ClockControl(USART_REG_t *pUSARTx, uint8_t enDi){
  */
 void USART_PeripheralControl(USART_REG_t *pUSARTx, uint8_t enDi){
 	if(enDi == ENABLE){
-		pUSARTx->CR1 |= (1 << 13);
+		pUSARTx->CR1 |= (1 << USART_CR1_UE);
 	}else{
-		pUSARTx->CR1 &= ~(1 << 13);
+		pUSARTx->CR1 &= ~(1 << USART_CR1_UE);
 	}
 }
 
