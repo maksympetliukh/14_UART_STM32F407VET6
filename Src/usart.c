@@ -7,6 +7,175 @@
 
 #include "usart.h"
 
+//Unused function
+uint32_t RCC_GetPLLOutputClock(void){
+	return 0;
+}
+
+//Array which contains all division factors of the AHB prescaler
+uint16_t AHB_Prescaler[9] = {2, 4, 8, 16, 32, 64, 128, 256, 512};
+
+//Array which contains all division factors of the APB1 prescaler
+uint16_t APB1_Prescaler[4] = {2, 4, 8, 16};
+
+//Array which contains all division factors of the APB1 prescaler
+uint16_t APB2_Prescaler[4] = {2, 4, 8, 16};
+
+/**************************************
+ * @fn          RCC_GetPCLK1Value
+ *
+ * @Brief       This function returns the value of frequency of the APB1 peripheral clock
+ *
+ * return       Variable which contains the value of frequency of the peripheral clock
+ */
+uint32_t RCC_GetPCLK1Value(void){
+	uint32_t pclk1, SystemClk;
+
+	uint8_t clksrc, tmp, ahb_prescaler, apb1_prescaler;
+	clksrc = ((RCC->CFGR >> 2) & 0x3); //Right shift by 2 to take bits [3:2] and mask other bits
+
+	if(clksrc == 0){
+		SystemClk = 16000000;
+	}else if(clksrc == 1){
+		SystemClk = 8000000;
+	}else if(clksrc == 2){
+		SystemClk = RCC_GetPLLOutputClock();
+	}
+
+	//AHB bus prescaling
+	tmp = ((RCC->CFGR >> 4) & 0xF);
+
+	if(tmp < 8){
+		ahb_prescaler = 1;
+	}else{
+		ahb_prescaler = AHB_Prescaler[tmp - 8];
+	}
+
+	//APB1 prescaling
+	tmp = ((RCC->CFGR >> 10) & 0x7);
+
+	if(tmp < 4){
+		apb1_prescaler = 1;
+	}else{
+		apb1_prescaler = APB1_Prescaler[tmp - 4];
+	}
+
+	pclk1 = (SystemClk / ahb_prescaler) / apb1_prescaler;
+
+	return pclk1;
+}
+
+/**************************************
+ * @fn          RCC_GetPCLK1Value
+ *
+ * @Brief       This function returns the value of frequency of the APB2 peripheral clock
+ *
+ * return       Variable which contains the value of frequency of the peripheral clock
+ */
+uint32_t RCC_GetPCLK2Value(void){
+	uint32_t pclk1, SystemClk;
+
+	uint8_t clksrc, tmp, ahb_prescaler, apb1_prescaler;
+	clksrc = ((RCC->CFGR >> 2) & 0x3); //Right shift by 2 to take bits [3:2] and mask other bits
+
+	if(clksrc == 0){
+		SystemClk = 16000000;
+	}else if(clksrc == 1){
+		SystemClk = 8000000;
+	}else if(clksrc == 2){
+		SystemClk = RCC_GetPLLOutputClock();
+	}
+
+	//AHB bus prescaling
+	tmp = ((RCC->CFGR >> 4) & 0xF);
+
+	if(tmp < 8){
+		ahb_prescaler = 1;
+	}else{
+		ahb_prescaler = AHB_Prescaler[tmp - 8];
+	}
+
+	//APB2 prescaling
+	tmp = ((RCC->CFGR >> 10) & 0x7);
+
+	if(tmp < 4){
+		apb1_prescaler = 1;
+	}else{
+		apb1_prescaler = APB2_Prescaler[tmp - 4];
+	}
+
+	pclk1 = (SystemClk / ahb_prescaler) / apb1_prescaler;
+
+	return pclk1;
+}
+
+/********************************************************************
+ * @fn           USART_SetBaudRate
+ *
+ * @Brief        This function configures baud rate for the USARTx peripheral
+ *
+ * @param[in]    Pointer to the structure with USARTx peripheral register base addresses
+ * @param[in]    Baud rate
+ *
+ * @return       none
+ */
+void USART_SetBaudRate(USART_REG_t *pUSARTx, uint32_t BaudRate){
+	//APB clock variable
+	uint32_t PCLKx;
+
+	//USARTx division factor
+	uint32_t usartDiv;
+
+	//Mantissa and Fraction part values
+	uint32_t mantissa, fraction;
+
+	uint32_t tmp = 0;
+
+	//Get the value of APB bus clock in to the PCKLx variable
+	if((pUSARTx == USART1) || (pUSARTx == USART6)){
+		//USART1 and USART6 are hanging on the APB2
+		PCLKx = RCC_GetPCLK2Value();
+	}else{
+		//Other peripherals are hanging on the APB1
+		PCLKx = RCC_GetPCLK1Value();
+	}
+
+	//Check for the OVER8 configuration bit
+	if(pUSARTx->CR1 & (1 << USART_CR1_OVER8)){
+		//OVER8 == 1, over sampling by 8
+		usartDiv = ((25 * PCLKx) / (2 * BaudRate));
+	}else{
+		//OVER8 == 0, over sampling by 16
+		usartDiv = ((25 * PCLKx) / (4 * BaudRate));
+	}
+
+	//Calculate the mantissa part
+	mantissa = usartDiv / 100;
+
+	//Place the mantissa part into appropriate bit position
+	tmp |= mantissa << USART_BRR_DIV_MANTISSA;
+
+	//Extract the Fraction part
+	fraction = (usartDiv - (mantissa * 100));
+
+	//Calculate the final fractional
+	if(pUSARTx->CR1 & (1 << USART_CR1_OVER8)){
+		//OVER8 == 1, over sampling by 8
+		fraction = (((fraction * 8) + 50) / 100) & ((uint8_t)0x07);
+
+		//Place the fraction part into the appropriate bit position
+		tmp |= fraction;
+	}else{
+		//OVER8 == 0, over sampling by 16
+		fraction = (((fraction * 16) + 50) / 100) & ((uint8_t)0x0F);
+
+		//Place the fraction part into the appropriate bit position
+		tmp |= fraction;
+	}
+	//Copy the value into the BRR register
+	pUSARTx->BRR = tmp;
+}
+
 /*******************************************************
  * @fn            USART_Init
  *
@@ -96,7 +265,7 @@ void USART_Init(USART_Handle_t *pUSART_Handle){
 	/**************************************Configure the BRR***********************************/
 	tmp = 0;
 
-	//This part will be filled later according to the courses
+	USART_SetBaudRate(pUSART_Handle->pUSARTx, pUSART_Handle->USART_Config.USART_Baud);
 }
 /*********************************************
  * @fn              USART_DeInit

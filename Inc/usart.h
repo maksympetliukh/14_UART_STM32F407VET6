@@ -138,5 +138,8 @@ void USART_IRQInterruptConfig(uint8_t IRQNumber, uint8_t enDi);
 void USART_IRQIPriorityConfig(uint8_t IRQNumber, uint32_t IRQPriority);
 void USART_IRQHandle(USART_Handle_t *pUSART_Handle);
 void USART_ApplicationEventCallback(USART_Handle_t *pUSART_Handle, uint8_t event);
+uint32_t RCC_GetPCLK1Value(void);
+uint32_t RCC_GetPCLK2Value(void);
+void USART_SetBaudRate(USART_REG_t *pUSARTx, uint32_t BaudRate);
 
 #endif /* USART_H_ */

@@ -784,7 +784,8 @@ typedef struct{
 #define USART_GTPR_PSC    0
 #define USART_GTPR_GT     8
 
+
 #include "gpio.h"
 #include "usart.h"
-
 #endif /* STM32F407XX_H_ */
+
