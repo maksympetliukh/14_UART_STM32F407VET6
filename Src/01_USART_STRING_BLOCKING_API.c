@@ -45,9 +45,9 @@ void USART_GPIO_Init(void){
 	GPIO_ClockControl(GPIOA, ENABLE);
 
 	//PA0 - UART4 TX
-	usart_gpio.GPIOx_CFG.pin_number = GPIO_PIN_0;
+	usart_gpio.GPIOx_CFG.pin_number = GPIO_PIN_9;
 	usart_gpio.GPIOx_CFG.pin_mode = GPIO_MODE_ALT_FN;
-	usart_gpio.GPIOx_CFG.pin_alt_func_mode = 8;
+	usart_gpio.GPIOx_CFG.pin_alt_func_mode = 7;
 	usart_gpio.GPIOx_CFG.pin_op_type = GPIO_OUT_PP;
 	usart_gpio.GPIOx_CFG.pin_pu_pd_ctrl = GPIO_NO_PUPD;
 	usart_gpio.GPIOx_CFG.pin_speed = GPIO_OSPEED_HIGH;
@@ -55,29 +55,29 @@ void USART_GPIO_Init(void){
 	GPIO_Init(&usart_gpio);
 }
 
-USART_Handle_t uart4;
+USART_Handle_t usart1;
 
-void UART4_Init(void){
-	uart4.pUSARTx = UART4;
+void USART1_Init(void){
+	usart1.pUSARTx = USART1;
 
-	USART_ClockControl(UART4, ENABLE);
+	USART_ClockControl(USART1, ENABLE);
 
-	uart4.USART_Config.USART_Mode = USART_MODE_ONLY_TX;
-	uart4.USART_Config.USART_Baud = USART_STD_BAUD_115200;
-	uart4.USART_Config.USART_WordLength = USART_WORDLEN_8BITS;
-	uart4.USART_Config.USART_NoOfStopBits = USART_STOPBITS_1;
-	uart4.USART_Config.USART_ParityControl = USART_PARITY_DISABLE;
-	uart4.USART_Config.USART_HWFlowControl = USART_HW_FLOW_CTRL_NONE;
+	usart1.USART_Config.USART_Mode = USART_MODE_ONLY_TX;
+	usart1.USART_Config.USART_Baud = USART_STD_BAUD_115200;
+	usart1.USART_Config.USART_WordLength = USART_WORDLEN_8BITS;
+	usart1.USART_Config.USART_NoOfStopBits = USART_STOPBITS_1;
+	usart1.USART_Config.USART_ParityControl = USART_PARITY_DISABLE;
+	usart1.USART_Config.USART_HWFlowControl = USART_HW_FLOW_CTRL_NONE;
 
-	USART_Init(&uart4);
+	USART_Init(&usart1);
 }
 
 int main(void){
 	Button_Init();
 	USART_GPIO_Init();
-	UART4_Init();
+	USART1_Init();
 
-	USART_PeripheralControl(UART4, ENABLE);
+	USART_PeripheralControl(USART1, ENABLE);
 
 	while(1){
 		while(GPIO_ReadPin(GPIOE, GPIO_PIN_3) == 1);
@@ -86,6 +86,6 @@ int main(void){
 		while(GPIO_ReadPin(GPIOE, GPIO_PIN_3) == 0);
 		Delay();
 
-		USART_Transmit(&uart4, tx, strlen((char*)tx));
+		USART_Transmit(&usart1, tx, strlen((char*)tx));
 	}
 }
