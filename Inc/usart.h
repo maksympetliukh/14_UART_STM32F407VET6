@@ -104,7 +104,7 @@ typedef struct{
 #define USART_EV_CTS             3
 #define USART_ERR_PE             4
 #define USART_ERR_FE             5
-#define USART_ERR_NF             6
+#define USART_ERR_NE             6
 #define USART_ERR_ORE            7
 
 /*
