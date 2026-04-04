@@ -112,7 +112,7 @@ typedef struct{
  */
 #define USART_FLAG_PE      (1 << 0)
 #define USART_FLAG_FE      (1 << 1)
-#define USART_FLAG_NF      (1 << 2)
+#define USART_FLAG_NE      (1 << 2)
 #define USART_FLAG_ORE     (1 << 3)
 #define USART_FLAG_IDLE    (1 << 4)
 #define USART_FLAG_RXNE    (1 << 5)
@@ -133,7 +133,7 @@ void USART_Receive(USART_Handle_t *pUSART_Handle, uint8_t *pRxBuffer, uint32_t l
 uint8_t USART_TransmitIT(USART_Handle_t *pUSART_Handle, uint8_t *pTxBuffer, uint32_t len);
 uint8_t USART_ReceiveIT(USART_Handle_t *pUSART_Handle, uint8_t *pRxBuffer, uint32_t len);
 uint8_t USART_GetFlagStatus(USART_REG_t *pUSARTx, uint32_t flag);
-void USART_ClearFlag(USART_REG_t *pUSARTx, uint16_t statusFlag);
+void USART_ClearFlag(USART_Handle_t *pUSART_Handle, uint16_t flag);
 void USART_IRQInterruptConfig(uint8_t IRQNumber, uint8_t enDi);
 void USART_IRQIPriorityConfig(uint8_t IRQNumber, uint32_t IRQPriority);
 void USART_IRQHandle(USART_Handle_t *pUSART_Handle);
@@ -141,5 +141,6 @@ void USART_ApplicationEventCallback(USART_Handle_t *pUSART_Handle, uint8_t event
 uint32_t RCC_GetPCLK1Value(void);
 uint32_t RCC_GetPCLK2Value(void);
 void USART_SetBaudRate(USART_REG_t *pUSARTx, uint32_t BaudRate);
+void USART_EnableInterrupt(USART_Handle_t *pUSART_Handle, uint16_t flag, uint8_t enDi);
 
 #endif /* USART_H_ */

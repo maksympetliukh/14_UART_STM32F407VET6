@@ -66,7 +66,7 @@ uint32_t RCC_GetPCLK1Value(void){
 }
 
 /**************************************
- * @fn          RCC_GetPCLK1Value
+ * @fn          RCC_GetPCLK2Value
  *
  * @Brief       This function returns the value of frequency of the APB2 peripheral clock
  *
@@ -96,7 +96,7 @@ uint32_t RCC_GetPCLK2Value(void){
 	}
 
 	//APB2 prescaling
-	tmp = ((RCC->CFGR >> 10) & 0x7);
+	tmp = ((RCC->CFGR >> 13) & 0x7);
 
 	if(tmp < 4){
 		apb1_prescaler = 1;
@@ -527,9 +527,90 @@ uint8_t USART_GetFlagStatus(USART_REG_t *pUSARTx, uint32_t flag){
 	return RESET;
 }
 
-void USART_ClearFlag(USART_REG_t *pUSARTx, uint16_t statusFlag);
-void USART_IRQInterruptConfig(uint8_t IRQNumber, uint8_t enDi);
-void USART_IRQIPriorityConfig(uint8_t IRQNumber, uint32_t IRQPriority);
+/************************************************************************
+ * @fn               USART_ClearFlag
+ *
+ * @brief            This function clears status flag in the USARTx
+ *
+ * @param[in]        Pointer to the structure with USARTx peripheral register base addresses
+ * @param[in]        USART status flag variable
+ *
+ * @return           none
+ */
+void USART_ClearFlag(USART_Handle_t *pUSART_Handle, uint16_t flag){
+	volatile uint32_t dummyRead = 0;
+
+	switch(flag){
+	case USART_FLAG_IDLE:
+	case USART_FLAG_ORE:
+	case USART_FLAG_NE:
+	case USART_FLAG_PE:
+	case USART_FLAG_FE: dummyRead = pUSART_Handle->pUSARTx->SR;
+	  	  	  	  	  	dummyRead = pUSART_Handle->pUSARTx->DR;
+	  	  	  	  	  	(void)dummyRead;
+	  	  	  	  	  	break;
+
+	case USART_FLAG_RXNE:
+	case USART_FLAG_LBD:
+	case USART_FLAG_CTS:
+	case USART_FLAG_TC:   pUSART_Handle->pUSARTx->SR &= ~flag; break;
+
+	case USART_FLAG_TXE: /*Hardware-only flag, cannot be cleared by software*/
+						 break;
+	}
+}
+
+/*************************************************************
+ * @fn            USART_IRQInterruptConfig
+ *
+ * @brief         This function enables/disables interruption for the USART
+ *
+ * @param[in]     IRQ Number
+ * @param[in]     Enable/disable variable
+ *
+ * @return        none
+ */
+void USART_IRQInterruptConfig(uint8_t IRQNumber, uint8_t enDi){
+	if(enDi == ENABLE){
+			if(IRQNumber <= 31){
+				*NVIC_ISER0 = (1 << IRQNumber);
+			}else if(IRQNumber > 31 && IRQNumber < 64){
+				*NVIC_ISER1 = (1 << (IRQNumber % 32));
+			}else if(IRQNumber >= 64 && IRQNumber < 96){
+				*NVIC_ISER2 = (1 << (IRQNumber % 32));
+			}
+		}else{
+			if(IRQNumber <= 31){
+				*NVIC_ICER0 = (1 << IRQNumber);
+			}else if(IRQNumber > 31 && IRQNumber < 64){
+				*NVIC_ICER1 = (1 << (IRQNumber % 32));
+			}else if(IRQNumber >= 64 && IRQNumber < 96){
+				*NVIC_ICER2 = (1 << (IRQNumber % 32));
+			}
+		}
+}
+
+/*******************************************************************
+ * @fn                USART_IRQPriorityConfig
+ *
+ * @brief             This function sets priority of the IRQ event
+ *
+ * @param[in]         IRQ number
+ * @param[in]         Priority number variable
+ *
+ * @return            none
+ */
+void USART_IRQIPriorityConfig(uint8_t IRQNumber, uint32_t IRQPriority){
+	if(IRQPriority > 15) IRQPriority = 15;
+
+	uint8_t reg_index = IRQNumber / 4;
+	uint8_t offset = IRQNumber % 4;
+	uint8_t shift_amount = (8 * offset) + (8 - PRIOR_BITS_IMPLEMENTED);
+
+	*(NVIC_IRQ_PRIOR_BASE + reg_index) &= ~(0xFFUL << (offset * 8));
+	*(NVIC_IRQ_PRIOR_BASE + reg_index) |= (IRQPriority << shift_amount);
+}
+
 /*******************************************************************
  * @fn                USART_IRQHandle
  *
@@ -698,7 +779,7 @@ void USART_IRQHandle(USART_Handle_t *pUSART_Handle){
 	tmp2 = pUSART_Handle->pUSARTx->CR1 & (1 << USART_CR1_IDLEIE);
 
 	if(tmp1 && tmp2){
-		tmp3 = pUSART_Handle->pUSARTx->DR;
+		USART_ClearFlag(pUSART_Handle, USART_FLAG_IDLE);
 		USART_ApplicationEventCallback(pUSART_Handle, USART_EV_IDLE);
 	}
 
@@ -711,7 +792,7 @@ void USART_IRQHandle(USART_Handle_t *pUSART_Handle){
 	tmp2 = pUSART_Handle->pUSARTx->CR1 & (1 << USART_CR1_RXNEIE);
 
 	if(tmp1 && tmp2){
-		tmp3 = pUSART_Handle->pUSARTx->DR;
+		USART_ClearFlag(pUSART_Handle, USART_FLAG_ORE);
 		USART_ApplicationEventCallback(pUSART_Handle, USART_ERR_ORE);
 	}
 
@@ -724,11 +805,13 @@ void USART_IRQHandle(USART_Handle_t *pUSART_Handle){
 	if (tmp2) {
 	    // 1. Check for FE (Framing Error)
 	    if (pUSART_Handle->pUSARTx->SR & (1 << USART_SR_FE)) {
+	    	USART_ApplicationEventCallback(pUSART_Handle, USART_ERR_FE);
 	        USART_ApplicationEventCallback(pUSART_Handle, USART_ERR_FE);
 	    }
 
 	    // 2. Check for NE (Noise Error)
 	    if (pUSART_Handle->pUSARTx->SR & (1 << USART_SR_NE)) {
+	    	USART_ApplicationEventCallback(pUSART_Handle, USART_ERR_NE);
 	        USART_ApplicationEventCallback(pUSART_Handle, USART_ERR_NE);
 	    }
 	}
@@ -738,9 +821,74 @@ void USART_IRQHandle(USART_Handle_t *pUSART_Handle){
 	tmp2 = pUSART_Handle->pUSARTx->SR & (1 << USART_SR_PE);
 
 	if (tmp1 && tmp2) {
-	    tmp3 = pUSART_Handle->pUSARTx->DR;
+		USART_ClearFlag(pUSART_Handle, USART_FLAG_PE);
 	    USART_ApplicationEventCallback(pUSART_Handle, USART_ERR_PE);
 	}
+}
+
+/********************************************************************
+ * @fn                USART_EnableInterrupt
+ *
+ * @brief             This function sets bits of the CR1-CR3 registers to enable the interrupt
+ *
+ * @param[in]         Pointer to the structure with USARTx regiters
+ * @param[in]         Enable/disable variable
+ *
+ * @return            none
+ */
+void USART_EnableInterrupt(USART_Handle_t *pUSART_Handle, uint16_t flag, uint8_t enDi){
+	switch(flag){
+	case USART_FLAG_TXE: if(enDi == ENABLE){
+								pUSART_Handle->pUSARTx->CR1 |= (1 << USART_CR1_TXEIE);
+							}else{
+								pUSART_Handle->pUSARTx->CR1 &= ~(1 << USART_CR1_TXEIE);
+							}
+	break;
+	case USART_FLAG_RXNE: if(enDi == ENABLE){
+								pUSART_Handle->pUSARTx->CR1 |= (1 << USART_CR1_RXNEIE);
+							}else{
+								pUSART_Handle->pUSARTx->CR1 &= ~(1 << USART_CR1_RXNEIE);
+							}
+	break;
+	case USART_FLAG_TC: if(enDi == ENABLE){
+								pUSART_Handle->pUSARTx->CR1 |= (1 << USART_CR1_TCIE);
+							}else{
+								pUSART_Handle->pUSARTx->CR1 &= ~(1 << USART_CR1_TCIE);
+							}
+	break;
+	case USART_FLAG_IDLE: if(enDi == ENABLE){
+								  pUSART_Handle->pUSARTx->CR1 |= (1 << USART_CR1_IDLEIE);
+							}else{
+								  pUSART_Handle->pUSARTx->CR1 &= ~(1 << USART_CR1_IDLEIE);
+							}
+	break;
+	case USART_FLAG_PE: if(enDi == ENABLE){
+								pUSART_Handle->pUSARTx->CR1 |= (1 << USART_CR1_PEIE);
+							}else{
+								pUSART_Handle->pUSARTx->CR1 &= ~(1 << USART_CR1_PEIE);
+							}
+	break;
+	case USART_FLAG_LBD: if(enDi == ENABLE){
+								 pUSART_Handle->pUSARTx->CR2 |= (1 << USART_CR2_LBDIE);
+							}else{
+								pUSART_Handle->pUSARTx->CR2 &= ~(1 << USART_CR2_LBDIE);
+							}
+	break;
+	case USART_FLAG_CTS: if(enDi == ENABLE){
+								 pUSART_Handle->pUSARTx->CR3 |= (1 << USART_CR3_CTSIE);
+							}else{
+								pUSART_Handle->pUSARTx->CR3 &= ~(1 << USART_CR3_CTSIE);
+							}
+	break;
+	case USART_FLAG_FE:
+	case USART_FLAG_NE:
+	case USART_FLAG_ORE:    if(enDi == ENABLE){
+							   pUSART_Handle->pUSARTx->CR3 |= (1 << USART_CR3_EIE);
+							}else{
+								pUSART_Handle->pUSARTx->CR3 &= ~(1 << USART_CR3_EIE);
+							}
+	break;
+				}
 }
 
 void USART_ApplicationEventCallback(USART_Handle_t *pUSART_Handle, uint8_t event);
