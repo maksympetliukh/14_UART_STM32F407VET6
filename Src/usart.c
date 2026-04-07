@@ -475,7 +475,7 @@ uint8_t USART_TransmitIT(USART_Handle_t *pUSART_Handle, uint8_t *pTxBuffer, uint
 		pUSART_Handle->TxState = USART_BUSY_IN_TX;
 
 		//Enable TX interrupt
-		pUSART_Handle->pUSARTx->CR1 |= (1 << USART_CR1_TXEIE);
+		USART_EnableInterrupt(pUSART_Handle, USART_FLAG_TXE, ENABLE);
 
 		//Enable TC interrupt
 		//pUSART_Handle->pUSARTx->CR1 |= (1 << USART_CR1_TCIE);
@@ -504,7 +504,7 @@ uint8_t USART_ReceiveIT(USART_Handle_t *pUSART_Handle, uint8_t *pRxBuffer, uint3
 		pUSART_Handle->RxState = USART_BUSY_IN_RX;
 
 		//Enable RX interrupt
-		pUSART_Handle->pUSARTx->CR1 |= (1 << USART_CR1_RXNEIE);
+		USART_EnableInterrupt(pUSART_Handle, USART_FLAG_RXNE, ENABLE);
 	}
 
 	return rx_state;
